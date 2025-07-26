@@ -1,3 +1,10 @@
+/*
+ * SSLServer.java
+ * This program implements a simple SSL server that listens for client connections,
+ * handles encrypted communication, and echoes back messages.
+ * Modified by Sainadth Pagadala on 2023-10-30.
+ */
+
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
@@ -6,16 +13,14 @@ import javax.net.ssl.SSLSocket;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 
 public class SSLServer {
+    // Server details
     private static final int PORT = 8443;
     private static final String KEYSTORE_PATH = "server.keystore";
     private static final String KEYSTORE_PASSWORD = "password";
@@ -42,9 +47,9 @@ public class SSLServer {
             try (SSLServerSocket serverSocket = (SSLServerSocket) factory.createServerSocket(PORT)) {
                 
                 System.out.println("SSL Server started on port " + PORT);
-                System.out.println("Waiting for client connections...");
                 
                 while (true) {
+                    System.out.println("\nWaiting for client connections...");
                     // Accept SSL client connection
                     try (SSLSocket clientSocket = (SSLSocket) serverSocket.accept()) {
                         
@@ -95,7 +100,11 @@ public class SSLServer {
                 return;
             }
             
-            // Create keystore using keytool command
+            /* 
+             * keytool command generates a self-signed certificate and stores it in the keystore.
+             * The key algorithm is RSA with a key size of 2048 bits.
+             * The keystore is valid for 365 days.
+             */
             String[] keytoolCmd = {
                 "keytool",
                 "-genkeypair",
@@ -109,6 +118,7 @@ public class SSLServer {
                 "-validity", "365"
             };
             
+            // creates child process to run keytool command
             ProcessBuilder pb = new ProcessBuilder(keytoolCmd);
             pb.redirectErrorStream(true);
             Process process = pb.start();
@@ -120,49 +130,16 @@ public class SSLServer {
                 System.out.println(line);
             }
             
+            // join the process to wait for it to finish
             int exitCode = process.waitFor();
             if (exitCode == 0) {
                 System.out.println("Keystore created successfully: " + KEYSTORE_PATH);
             } else {
-                System.err.println("Failed to create keystore with keytool");
-                // Create a basic keystore programmatically as fallback
-                createBasicKeystore();
+                throw new RuntimeException("Error executing keytool command. Please ensure Java keytool is installed and accessible.");
             }
             
         } catch (Exception e) {
-            System.err.println("Error creating keystore with keytool: " + e.getMessage());
-            // Fallback to basic keystore creation
-            createBasicKeystore();
-        }
-    }
-    
-    private static void createBasicKeystore() {
-        try {
-            // Generate key pair
-            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
-            keyGen.initialize(2048);
-            KeyPair keyPair = keyGen.generateKeyPair();
-            
-            // Create a simple keystore without certificate chain
-            KeyStore keyStore = KeyStore.getInstance("JKS");
-            keyStore.load(null, null);
-            
-            // Create a dummy certificate (this is a simplified approach)
-            // In a real application, you would use proper certificate generation
-            System.out.println("Creating basic keystore without certificate validation...");
-            System.out.println("Note: This is for testing purposes only!");
-            
-            // Save empty keystore first
-            try (FileOutputStream fos = new FileOutputStream(KEYSTORE_PATH)) {
-                keyStore.store(fos, KEYSTORE_PASSWORD.toCharArray());
-            }
-            
-            System.out.println("Basic keystore created: " + KEYSTORE_PATH);
-            System.out.println("Warning: SSL connections may fail without proper certificates");
-            
-        } catch (Exception e) {
-            System.err.println("Error creating basic keystore: " + e.getMessage());
-            e.printStackTrace();
+            throw new RuntimeException(e.getMessage());
         }
     }
 }
